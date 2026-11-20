@@ -34,6 +34,7 @@ func (cfg *apiConfig) handlerMetrics(writer http.ResponseWriter, request *http.R
 func (cfg *apiConfig) handlerReset(writer http.ResponseWriter, request *http.Request) {
 	if cfg.platform != "dev" {
 		respondWithError(writer, 403, "endpoint allowed only in development environment")
+		return
 	}
 	err := cfg.dbQueries.ResetDB(request.Context())
 	if err != nil {

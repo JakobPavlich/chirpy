@@ -84,11 +84,12 @@ func handlerValidate(writer http.ResponseWriter, request *http.Request) {
 	data, err := json.Marshal(cleanBody)
 	if err != nil {
 		respondWithError(writer, 500, "error marshalling JSON")
+		return
 	}
 	respondWithJSON(writer, 200, data)
 }
 
-func (cfg *apiConfig) handlerChirps(writer http.ResponseWriter, request *http.Request) {
+func (cfg *apiConfig) handlerPostChirp(writer http.ResponseWriter, request *http.Request) {
 	type chirp struct {
 		Body   string    `json:"body"`
 		UserID uuid.UUID `json:"user_id"`
@@ -112,6 +113,7 @@ func (cfg *apiConfig) handlerChirps(writer http.ResponseWriter, request *http.Re
 	savedChirp, err := cfg.dbQueries.CreateChirp(request.Context(), params)
 	if err != nil {
 		respondWithError(writer, 500, err.Error())
+		return
 	}
 	var chirpJSON chirpDetails
 	chirpJSON.ID = savedChirp.ID
@@ -122,8 +124,60 @@ func (cfg *apiConfig) handlerChirps(writer http.ResponseWriter, request *http.Re
 	data, err := json.Marshal(chirpJSON)
 	if err != nil {
 		respondWithError(writer, 500, "Error marshaling chirp")
+		return
 	}
 	respondWithJSON(writer, 201, data)
+}
+
+func (cfg *apiConfig) handlerChirps(writer http.ResponseWriter, request *http.Request) {
+	chirps, err := cfg.dbQueries.GetChirps(request.Context())
+	if err != nil {
+		respondWithError(writer, 500, "Error retrieving chirps")
+		fmt.Println(err)
+		return
+	}
+	var chirpsSlice []chirpDetails
+	for _, chirp := range chirps {
+		var chirpJSON chirpDetails
+		chirpJSON.ID = chirp.ID
+		chirpJSON.Created_at = chirp.CreatedAt
+		chirpJSON.Updated_at = chirp.UpdatedAt
+		chirpJSON.Body = chirp.Body
+		chirpJSON.UserID = chirp.UserID
+		chirpsSlice = append(chirpsSlice, chirpJSON)
+	}
+	data, err := json.Marshal(chirpsSlice)
+	if err != nil {
+		respondWithError(writer, 500, "Error marshaling chirps slice")
+		return
+	}
+	respondWithJSON(writer, 200, data)
+}
+
+func (cfg *apiConfig) handlerChirp(writer http.ResponseWriter, request *http.Request) {
+	idString := request.PathValue("chirpID")
+	id, err := uuid.Parse(idString)
+	if err != nil {
+		respondWithError(writer, 404, "error parsing uuid")
+		return
+	}
+	chirp, err := cfg.dbQueries.GetChirpByID(request.Context(), id)
+	if err != nil {
+		respondWithError(writer, 404, "error retrieving chirp")
+		return
+	}
+	var chirpJSON chirpDetails
+	chirpJSON.ID = chirp.ID
+	chirpJSON.Created_at = chirp.CreatedAt
+	chirpJSON.Updated_at = chirp.UpdatedAt
+	chirpJSON.Body = chirp.Body
+	chirpJSON.UserID = chirp.UserID
+	data, err := json.Marshal(chirpJSON)
+	if err != nil {
+		respondWithError(writer, 500, "error marshaling chirp")
+		return
+	}
+	respondWithJSON(writer, 200, data)
 }
 
 func (cfg *apiConfig) handlerCreateUser(writer http.ResponseWriter, request *http.Request) {
@@ -149,6 +203,7 @@ func (cfg *apiConfig) handlerCreateUser(writer http.ResponseWriter, request *htt
 	data, err := json.Marshal(userJSON)
 	if err != nil {
 		respondWithError(writer, 500, "error marshalling JSON in handlerCreateUser")
+		return
 	}
 
 	respondWithJSON(writer, 201, data)
