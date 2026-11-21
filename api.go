@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
+	"github.com/JakobPavlich/chirpy/internal/auth"
 	"github.com/JakobPavlich/chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -181,16 +183,39 @@ func (cfg *apiConfig) handlerChirp(writer http.ResponseWriter, request *http.Req
 }
 
 func (cfg *apiConfig) handlerCreateUser(writer http.ResponseWriter, request *http.Request) {
-	type userEmail struct {
-		Email string `json:"email"`
+	type newUser struct {
+		Password string `json:"password"`
+		Email    string `json:"email"`
 	}
 	decoder := json.NewDecoder(request.Body)
-	uEmail := userEmail{}
-	err := decoder.Decode(&uEmail)
+	newUserJSON := newUser{}
+	err := decoder.Decode(&newUserJSON)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = request.Body.Close()
 	if err != nil {
 		fmt.Println(err)
 	}
-	user, err := cfg.dbQueries.CreateUser(request.Context(), uEmail.Email)
+	if newUserJSON.Email == "" {
+		respondWithError(writer, 500, "Email required")
+		return
+	}
+	if newUserJSON.Password == "" {
+		respondWithError(writer, 500, "Password required")
+		return
+	}
+
+	var params database.CreateUserParams
+	hashed_password, err := auth.HashPassword(newUserJSON.Password)
+	if err != nil {
+		respondWithError(writer, 500, "Registration failed")
+		fmt.Printf("Failed to save password for user '%s': %v", params.Email, err)
+	}
+	params.Email = newUserJSON.Email
+	params.HashedPassword.String = hashed_password
+	params.HashedPassword.Valid = true
+	user, err := cfg.dbQueries.CreateUser(request.Context(), params)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -207,4 +232,59 @@ func (cfg *apiConfig) handlerCreateUser(writer http.ResponseWriter, request *htt
 	}
 
 	respondWithJSON(writer, 201, data)
+}
+
+func (cfg *apiConfig) handlerLogin(writer http.ResponseWriter, request *http.Request) {
+	type user struct {
+		Password string `json:"password"`
+		Email    string `json:"email"`
+	}
+	decoder := json.NewDecoder(request.Body)
+	userJSON := user{}
+	err := decoder.Decode(&userJSON)
+	if err != nil {
+		respondWithError(writer, 500, "Error checking user.Please try again")
+		fmt.Println(err)
+		return
+	}
+	err = request.Body.Close()
+	if err != nil {
+		fmt.Println(err)
+	}
+	if userJSON.Email == "" {
+		respondWithError(writer, 500, "Email required")
+		return
+	}
+	if userJSON.Password == "" {
+		respondWithError(writer, 500, "Password required")
+		return
+	}
+
+	userDB, err := cfg.dbQueries.GetUserByEmail(request.Context(), userJSON.Email)
+	if err != nil {
+		respondWithError(writer, 500, fmt.Sprintf("Error retrieving user '%s'", userJSON.Email))
+		fmt.Println(err)
+		return
+	}
+	ok, err := auth.CheckPasswordHash(userJSON.Password, userDB.HashedPassword.String)
+	if err != nil {
+		respondWithError(writer, 500, "error checking credentials")
+		return
+	}
+	if !ok {
+		respondWithError(writer, 401, "invalid credentials")
+		fmt.Println("Invalid credentials")
+		return
+	}
+	var loggedInUser userDetails
+	loggedInUser.ID = userDB.ID
+	loggedInUser.Email = userDB.Email
+	loggedInUser.Created_at = userDB.CreatedAt
+	loggedInUser.Updated_at = userDB.UpdatedAt
+	data, err := json.Marshal(loggedInUser)
+	if err != nil {
+		respondWithError(writer, 500, "error returning user details")
+		fmt.Println(err)
+	}
+	respondWithJSON(writer, 200, data)
 }

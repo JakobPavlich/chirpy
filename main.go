@@ -58,6 +58,7 @@ func main() {
 	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerChirp)
 	mux.HandleFunc("GET /api/chirps", apiCfg.handlerChirps)
+	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)
 	var server http.Server
 	server.Handler = mux
 	server.Addr = ":8080"
