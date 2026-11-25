@@ -52,6 +52,12 @@ func GetBearerToken(headers http.Header) (string, error) {
 	if authorization == "" {
 		return "", errors.New("authorization header missing")
 	}
+	if authorization[:7] != "Bearer " {
+		return "", errors.New("token must start with 'Bearer'")
+	}
+	if len(authorization) < 7 {
+		return "", errors.New("Invalid input(too short for a token)")
+	}
 
 	token := authorization[7:]
 	return token, nil

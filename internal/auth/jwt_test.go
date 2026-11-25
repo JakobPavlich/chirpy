@@ -81,3 +81,34 @@ func TestGetBearerToken(t *testing.T) {
 		}
 	}
 }
+
+func TestBearerTDDBoots(t *testing.T) {
+	emptyHeader := http.Header{}
+	onlyBearerInHeader := http.Header{}
+	onlyBearerInHeader.Set("Authorization", "Bearer ")
+	bearerMissingHeader := http.Header{}
+	bearerMissingHeader.Set("Authorization", tokenSecrets[1])
+	tests := []struct {
+		name    string
+		input   http.Header
+		want    string
+		wantErr bool
+	}{
+		{"missing Authorization header", emptyHeader, "", true},
+		{"only Bearer and no token", onlyBearerInHeader, "", false},
+		{"Bearer missing in token", bearerMissingHeader, "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetBearerToken(tt.input)
+			if tt.wantErr && err == nil {
+				t.Errorf("expected error")
+			} else if !tt.wantErr && err != nil {
+				t.Errorf("error calling GetBearerToken with '%v':%v", tt.input, err)
+			}
+			if got != tt.want {
+				t.Errorf("result not as expected. Want '%v'. Got '%v'", tt.want, got)
+			}
+		})
+	}
+}
