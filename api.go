@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/JakobPavlich/chirpy/internal/auth"
 	"github.com/JakobPavlich/chirpy/internal/database"
@@ -93,12 +94,22 @@ func handlerValidate(writer http.ResponseWriter, request *http.Request) {
 
 func (cfg *apiConfig) handlerPostChirp(writer http.ResponseWriter, request *http.Request) {
 	type chirp struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
+	}
+	token, err := auth.GetBearerToken(request.Header)
+	if err != nil {
+		respondWithError(writer, 500, "error retrieving token")
+		fmt.Println(err)
+		return
+	}
+	userIDFromToken, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(writer, 401, "error validating token")
+		return
 	}
 	decoder := json.NewDecoder(request.Body)
 	chrp := chirp{}
-	err := decoder.Decode(&chrp)
+	err = decoder.Decode(&chrp)
 	if err != nil {
 		respondWithError(writer, 500, "Error decoding request")
 		return
@@ -111,7 +122,7 @@ func (cfg *apiConfig) handlerPostChirp(writer http.ResponseWriter, request *http
 	checkedText := checkWords(chrp.Body)
 	var params database.CreateChirpParams
 	params.Body = checkedText
-	params.UserID = chrp.UserID
+	params.UserID = userIDFromToken
 	savedChirp, err := cfg.dbQueries.CreateChirp(request.Context(), params)
 	if err != nil {
 		respondWithError(writer, 500, err.Error())
@@ -236,8 +247,9 @@ func (cfg *apiConfig) handlerCreateUser(writer http.ResponseWriter, request *htt
 
 func (cfg *apiConfig) handlerLogin(writer http.ResponseWriter, request *http.Request) {
 	type user struct {
-		Password string `json:"password"`
-		Email    string `json:"email"`
+		Password         string `json:"password"`
+		Email            string `json:"email"`
+		ExpiresInSeconds int    `json:"expires_in_seconds"`
 	}
 	decoder := json.NewDecoder(request.Body)
 	userJSON := user{}
@@ -276,11 +288,27 @@ func (cfg *apiConfig) handlerLogin(writer http.ResponseWriter, request *http.Req
 		fmt.Println("Invalid credentials")
 		return
 	}
+
 	var loggedInUser userDetails
 	loggedInUser.ID = userDB.ID
 	loggedInUser.Email = userDB.Email
 	loggedInUser.Created_at = userDB.CreatedAt
 	loggedInUser.Updated_at = userDB.UpdatedAt
+
+	var expiration time.Duration
+	if userJSON.ExpiresInSeconds > 0 && userJSON.ExpiresInSeconds < 60*60 {
+		expiration = time.Duration(userJSON.ExpiresInSeconds) * time.Second
+	} else {
+		expiration = 1 * time.Hour
+	}
+
+	token, err := auth.MakeJWT(loggedInUser.ID, cfg.secret, expiration)
+	if err != nil {
+		respondWithError(writer, 500, "error making token")
+		fmt.Println(err)
+	}
+	loggedInUser.Token = token
+
 	data, err := json.Marshal(loggedInUser)
 	if err != nil {
 		respondWithError(writer, 500, "error returning user details")

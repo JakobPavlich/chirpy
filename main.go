@@ -18,12 +18,14 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries      *database.Queries
 	platform       string
+	secret         string
 }
 type userDetails struct {
 	ID         uuid.UUID `json:"id"`
 	Created_at time.Time `json:"created_at"`
 	Updated_at time.Time `json:"updated_at"`
 	Email      string    `json:"email"`
+	Token      string    `json:"token"`
 }
 type chirpDetails struct {
 	ID         uuid.UUID `json:"id"`
@@ -48,6 +50,10 @@ func main() {
 	apiCfg.dbQueries = database.New(db)
 	platform := os.Getenv("PLATFORM")
 	apiCfg.platform = platform
+	secret := os.Getenv("SECRET")
+	if secret != "" {
+		apiCfg.secret = secret
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
