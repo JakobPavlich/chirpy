@@ -21,11 +21,12 @@ type apiConfig struct {
 	secret         string
 }
 type userDetails struct {
-	ID         uuid.UUID `json:"id"`
-	Created_at time.Time `json:"created_at"`
-	Updated_at time.Time `json:"updated_at"`
-	Email      string    `json:"email"`
-	Token      string    `json:"token"`
+	ID           uuid.UUID `json:"id"`
+	Created_at   time.Time `json:"created_at"`
+	Updated_at   time.Time `json:"updated_at"`
+	Email        string    `json:"email"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refresh_token"`
 }
 type chirpDetails struct {
 	ID         uuid.UUID `json:"id"`

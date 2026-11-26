@@ -247,9 +247,8 @@ func (cfg *apiConfig) handlerCreateUser(writer http.ResponseWriter, request *htt
 
 func (cfg *apiConfig) handlerLogin(writer http.ResponseWriter, request *http.Request) {
 	type user struct {
-		Password         string `json:"password"`
-		Email            string `json:"email"`
-		ExpiresInSeconds int    `json:"expires_in_seconds"`
+		Password string `json:"password"`
+		Email    string `json:"email"`
 	}
 	decoder := json.NewDecoder(request.Body)
 	userJSON := user{}
@@ -295,12 +294,7 @@ func (cfg *apiConfig) handlerLogin(writer http.ResponseWriter, request *http.Req
 	loggedInUser.Created_at = userDB.CreatedAt
 	loggedInUser.Updated_at = userDB.UpdatedAt
 
-	var expiration time.Duration
-	if userJSON.ExpiresInSeconds > 0 && userJSON.ExpiresInSeconds < 60*60 {
-		expiration = time.Duration(userJSON.ExpiresInSeconds) * time.Second
-	} else {
-		expiration = 1 * time.Hour
-	}
+	expiration := 1 * time.Hour
 
 	token, err := auth.MakeJWT(loggedInUser.ID, cfg.secret, expiration)
 	if err != nil {
@@ -308,6 +302,19 @@ func (cfg *apiConfig) handlerLogin(writer http.ResponseWriter, request *http.Req
 		fmt.Println(err)
 	}
 	loggedInUser.Token = token
+
+	refreshToken := auth.MakeRefreshToken()
+	var tokenParams database.CreateRefreshTokenParams
+	tokenParams.Token = refreshToken
+	tokenParams.ExpiresAt = time.Now().Add(60 * 24 * time.Hour)
+	tokenParams.UserID = loggedInUser.ID
+	_, err = cfg.dbQueries.CreateRefreshToken(request.Context(), tokenParams)
+	if err != nil {
+		respondWithError(writer, 500, "error making refresh token")
+		fmt.Println(err)
+		return
+	}
+	loggedInUser.RefreshToken = refreshToken
 
 	data, err := json.Marshal(loggedInUser)
 	if err != nil {
