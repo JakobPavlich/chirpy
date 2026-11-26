@@ -323,3 +323,52 @@ func (cfg *apiConfig) handlerLogin(writer http.ResponseWriter, request *http.Req
 	}
 	respondWithJSON(writer, 200, data)
 }
+
+func (cfg *apiConfig) handlerRefresh(writer http.ResponseWriter, request *http.Request) {
+	token, err := auth.GetBearerToken(request.Header)
+	if err != nil {
+		respondWithError(writer, 500, "error geting refresh token")
+		fmt.Println(err)
+		return
+	}
+	dbToken, err := cfg.dbQueries.GetRefreshToken(request.Context(), token)
+	if err != nil {
+		respondWithError(writer, 401, "error retrieving token from DB")
+		fmt.Println(err)
+		return
+	}
+	if expired := time.Now().After(dbToken.ExpiresAt); expired {
+		respondWithError(writer, 401, "token expired")
+		fmt.Println("token expired")
+		return
+	}
+	if dbToken.RevokedAt.Valid {
+		respondWithError(writer, 401, "token revoked")
+		fmt.Println("token revoked")
+		return
+	}
+	userID, err := cfg.dbQueries.GetUserFromRefreshToken(request.Context(), token)
+	if err != nil {
+		respondWithError(writer, 500, "")
+		fmt.Println(err)
+		return
+	}
+	jwt, err := auth.MakeJWT(userID, cfg.secret, 1*time.Hour)
+	if err != nil {
+		respondWithError(writer, 500, "error making JWT")
+		fmt.Println(err)
+		return
+	}
+	type tokenReturn struct {
+		Token string `json:"token"`
+	}
+	var returnJWT tokenReturn
+	returnJWT.Token = jwt
+	data, err := json.Marshal(returnJWT)
+	if err != nil {
+		respondWithError(writer, 500, "error marshlling jwt")
+		fmt.Println(err)
+		return
+	}
+	respondWithJSON(writer, 200, data)
+}
