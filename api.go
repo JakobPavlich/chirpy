@@ -372,3 +372,19 @@ func (cfg *apiConfig) handlerRefresh(writer http.ResponseWriter, request *http.R
 	}
 	respondWithJSON(writer, 200, data)
 }
+
+func (cfg *apiConfig) handlerRevoke(writer http.ResponseWriter, request *http.Request) {
+	token, err := auth.GetBearerToken(request.Header)
+	if err != nil {
+		respondWithError(writer, 500, "error geting refresh token")
+		fmt.Println(err)
+		return
+	}
+	err = cfg.dbQueries.RevokeRefreshToken(request.Context(), token)
+	if err != nil {
+		respondWithError(writer, 500, "error")
+		fmt.Println(err)
+		return
+	}
+	writer.WriteHeader(204)
+}
