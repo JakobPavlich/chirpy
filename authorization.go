@@ -74,3 +74,40 @@ func (cfg *apiConfig) handlerUpdateUserDetails(w http.ResponseWriter, r *http.Re
 
 	respondWithJSON(w, 200, resJSON)
 }
+
+func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(401)
+		return
+	}
+	userIDFromToken, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(401)
+		return
+	}
+	chirpIDString := r.PathValue("chirpID")
+	chirpID, err := uuid.Parse(chirpIDString)
+	if err != nil {
+		w.WriteHeader(404)
+		return
+	}
+	chirp, err := cfg.dbQueries.GetChirpByID(r.Context(), chirpID)
+	if err != nil {
+		w.WriteHeader(404)
+		return
+	}
+	if chirp.UserID != userIDFromToken {
+		w.WriteHeader(403)
+		return
+	}
+	err = cfg.dbQueries.DeleteChirp(r.Context(), chirp.ID)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(404)
+		return
+	}
+	w.WriteHeader(204)
+}
