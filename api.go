@@ -235,6 +235,7 @@ func (cfg *apiConfig) handlerCreateUser(writer http.ResponseWriter, request *htt
 	userJSON.Created_at = user.CreatedAt
 	userJSON.Updated_at = user.UpdatedAt
 	userJSON.Email = user.Email
+	userJSON.IsChirpyRed = user.IsChirpyRed.Bool
 
 	data, err := json.Marshal(userJSON)
 	if err != nil {
@@ -247,8 +248,9 @@ func (cfg *apiConfig) handlerCreateUser(writer http.ResponseWriter, request *htt
 
 func (cfg *apiConfig) handlerLogin(writer http.ResponseWriter, request *http.Request) {
 	type user struct {
-		Password string `json:"password"`
-		Email    string `json:"email"`
+		Password    string `json:"password"`
+		Email       string `json:"email"`
+		IsChirpyRed bool   `json:"is_chirpy_red"`
 	}
 	decoder := json.NewDecoder(request.Body)
 	userJSON := user{}
@@ -293,6 +295,7 @@ func (cfg *apiConfig) handlerLogin(writer http.ResponseWriter, request *http.Req
 	loggedInUser.Email = userDB.Email
 	loggedInUser.Created_at = userDB.CreatedAt
 	loggedInUser.Updated_at = userDB.UpdatedAt
+	loggedInUser.IsChirpyRed = userDB.IsChirpyRed.Bool
 
 	expiration := 1 * time.Hour
 

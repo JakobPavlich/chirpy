@@ -22,6 +22,11 @@ WHERE
 
 -- name: UpdateUserEmailAndPassword :one
 UPDATE users
-SET email = $2, hashed_password = $3, updated_at = $4
+SET email = $2, hashed_password = $3, updated_at = $4 /*updated_at drugače kot v naslednjem primeru*/
 WHERE id = $1
 RETURNING *;
+
+-- name: ChirpyRedUpgrade :exec
+UPDATE users
+SET is_chirpy_red = TRUE, updated_at = NOW()
+WHERE id = $1;

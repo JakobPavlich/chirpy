@@ -55,16 +55,18 @@ func (cfg *apiConfig) handlerUpdateUserDetails(w http.ResponseWriter, r *http.Re
 		return
 	}
 	type response struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
+		ID          uuid.UUID `json:"id"`
+		CreatedAt   time.Time `json:"created_at"`
+		UpdatedAt   time.Time `json:"updated_at"`
+		Email       string    `json:"email"`
+		IsChirpyRed bool      `json:"is_chirpy_red"`
 	}
 	var res response
 	res.ID = user.ID
 	res.CreatedAt = user.CreatedAt
 	res.UpdatedAt = user.UpdatedAt
 	res.Email = user.Email
+	res.IsChirpyRed = user.IsChirpyRed.Bool
 	resJSON, err := json.Marshal(res)
 	if err != nil {
 		fmt.Println(err)
@@ -107,6 +109,41 @@ func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(404)
+		return
+	}
+	w.WriteHeader(204)
+}
+
+func (cfg *apiConfig) handlerUserUpgrade(w http.ResponseWriter, r *http.Request) {
+	type upgradeData struct {
+		UserID string `json:"user_id"`
+	}
+	type upgradeRequest struct {
+		Event string      `json:"event"`
+		Data  upgradeData `json:"data"`
+	}
+	var userRequest upgradeRequest
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&userRequest)
+	if err != nil {
+		w.WriteHeader(500)
+		fmt.Println(err)
+		return
+	}
+	if userRequest.Event != "user.upgraded" {
+		w.WriteHeader(204)
+		return
+	}
+	id, err := uuid.Parse(userRequest.Data.UserID)
+	if err != nil {
+		w.WriteHeader(404)
+		fmt.Println(err)
+		return
+	}
+	err = cfg.dbQueries.ChirpyRedUpgrade(r.Context(), id)
+	if err != nil {
+		w.WriteHeader(404)
+		fmt.Println(err)
 		return
 	}
 	w.WriteHeader(204)

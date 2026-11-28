@@ -13,6 +13,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const chirpyRedUpgrade = `-- name: ChirpyRedUpgrade :exec
+UPDATE users
+SET is_chirpy_red = TRUE, updated_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) ChirpyRedUpgrade(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, chirpyRedUpgrade, id)
+	return err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, created_at, updated_at, email, hashed_password)
 VALUES (
@@ -22,7 +33,7 @@ VALUES (
   $1,
   $2
 )
-RETURNING id, created_at, updated_at, email, hashed_password
+RETURNING id, created_at, updated_at, email, hashed_password, is_chirpy_red
 `
 
 type CreateUserParams struct {
@@ -39,13 +50,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.UpdatedAt,
 		&i.Email,
 		&i.HashedPassword,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT
-  id, created_at, updated_at, email, hashed_password
+  id, created_at, updated_at, email, hashed_password, is_chirpy_red
 FROM
   users
 WHERE
@@ -61,6 +73,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 		&i.Email,
 		&i.HashedPassword,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }
@@ -76,9 +89,9 @@ func (q *Queries) ResetDB(ctx context.Context) error {
 
 const updateUserEmailAndPassword = `-- name: UpdateUserEmailAndPassword :one
 UPDATE users
-SET email = $2, hashed_password = $3, updated_at = $4
+SET email = $2, hashed_password = $3, updated_at = $4 /*updated_at drugače kot v naslednjem primeru*/
 WHERE id = $1
-RETURNING id, created_at, updated_at, email, hashed_password
+RETURNING id, created_at, updated_at, email, hashed_password, is_chirpy_red
 `
 
 type UpdateUserEmailAndPasswordParams struct {
@@ -102,6 +115,7 @@ func (q *Queries) UpdateUserEmailAndPassword(ctx context.Context, arg UpdateUser
 		&i.UpdatedAt,
 		&i.Email,
 		&i.HashedPassword,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }
