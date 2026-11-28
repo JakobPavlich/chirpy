@@ -19,6 +19,7 @@ type apiConfig struct {
 	dbQueries      *database.Queries
 	platform       string
 	secret         string
+	polkaKey       string
 }
 type userDetails struct {
 	ID           uuid.UUID `json:"id"`
@@ -56,6 +57,7 @@ func main() {
 	if secret != "" {
 		apiCfg.secret = secret
 	}
+	apiCfg.polkaKey = os.Getenv("POLKA_KEY")
 
 	mux := http.NewServeMux()
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))

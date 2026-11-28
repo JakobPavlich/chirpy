@@ -115,6 +115,17 @@ func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *apiConfig) handlerUserUpgrade(w http.ResponseWriter, r *http.Request) {
+	APIKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		w.WriteHeader(401)
+		fmt.Println(err)
+		return
+	}
+	if APIKey != cfg.polkaKey {
+		w.WriteHeader(401)
+		fmt.Println("wrong API key")
+		return
+	}
 	type upgradeData struct {
 		UserID string `json:"user_id"`
 	}
@@ -124,7 +135,7 @@ func (cfg *apiConfig) handlerUserUpgrade(w http.ResponseWriter, r *http.Request)
 	}
 	var userRequest upgradeRequest
 	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&userRequest)
+	err = decoder.Decode(&userRequest)
 	if err != nil {
 		w.WriteHeader(500)
 		fmt.Println(err)
